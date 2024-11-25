@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Демо технологии перенаправления звонков</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Raleway:wght@400;700&display=swap');
+        body {
+            font-family: 'Raleway', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #e5e5e5;
+            color: #222;
+        }
+        header, section, footer {
+            width: 100vw; /* Full width for background */
+            padding: 20px;
+            box-sizing: border-box;
+            min-height: 300px; /* Fixed height for blocks */
+        }
+        header {
+            background-color: #f9f9f9; /* Almost white */
+            display: flex;
+            color: #333; /* Dark text for contrast */;
+        }
+        section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #bbdefb; /* Medium light blue */
+            text-align: center; /* Center-align text horizontally */
+        }
+        footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #e3f2fd; /* Light blue */
+            text-align: center; /* Center-align text horizontally */
+        }
+        .content {
+            max-width: 600px; /* Reasonable width for content */
+            width: 100%;
+        }
+        header .content {
+            padding: 200px 20px 200px 100px;
+            text-align: left; /* Align content to the left for the first block */
+        }
+        .button-container {
+            position: relative;
+            height: 50px; /* Fixed height to prevent jumping */
+            margin-top: 20px;
+            /* text-align: left; */
+        }
+        .button, .call-animation {
+            position: static;
+            transform: none;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #2196f3; /* Blue button */
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #1976d2; /* Darker blue for hover effect */
+        }
+        .call-animation {
+            display: none;
+            font-size: 1.5em;
+        }
+        .call-animation.active {
+            display: block;
+        }
+        .record-link {
+            display: none;
+        }
+        h1, h2 {
+            margin: 10px 0;
+            font-family: 'Montserrat', sans-serif;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            header, section, footer {
+                height: auto; /* Responsive height adjustment */
+            }
+            header .content {
+                padding: 20px 20px 20px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="content">
+            <h1>Busy</h1>
+            <p>Этот сайт демонстрирует технологию, которая перенаправляет телефонный звонок на AI робота, если абонент занят. Поговорите с роботом, который отвечает на звонки за Никиту из компании <a href="https://lia.chat/">Лия</a>.</p>
+            <div class="button-container">
+                <a href="#" class="button" id="demoButton">Позвонить роботу Никиты</a>
+                <div class="call-animation" id="callAnimation">Звонок...</div>
+            </div>
+            <div class="replica-container" id="replicaContainer"></div>
+            <a href="#" target="_blank" class="record-link" id="recordLink">Запись звонка</a>
+        </div>
+    </header>
+    <section>
+        <div class="content">
+            <h2>Как это работает</h2>
+            <p>Настройте переадресацию у вашего мобильного оператора на специальный номер. Когда поступает входящий звонок, и вы не можете ответить, оператор направит звонок в телефонию. В целях демонстрации, данный сайт направляет звонок прямо в телефонию.</p>
+            <p>Телефония автоматически берёт трубку и начинает обмениваться аудиопотоками с ChatGPT через Realtime API. Роботу от ChatGPT можно дать инструкции как общаться и настроить голос.</p>
+            <p>Когда робот или вы положите трубку, запись звонка и расшифровка отправиться Никите в Telegram.</p>
+        </div>
+    </section>
+    <footer>
+        <div class="content">
+            <h2>Хочу такого же робота</h2>
+            <p>Такая технология позволяет не пропускать важные звонки, когда вы в кино, на совещании или за границей. В отличие от прежних подобных решений, диалог с ChatGPT получается более отзывчивым и не раздражает.</p>
+            <p>Если вы хотите такого же робота для себя или для вашего бизнеса, свяжитесь с Никитой, попросив робота подключить его к разговору, или напишите на <a href="mailto:nick@lia.chat">nick@lia.chat</a>.</p>
+            <p>Также это open source проект, и вы можете свободно использовать его на собственной инфраструктуре.</p>
+        </div>
+    </footer>
+    <script type="text/javascript" src="https://unpkg.com/voximplant-websdk@4.8.4-2849"></script>
+    <script>
+        const demoButton = document.getElementById('demoButton');
+        const callAnimation = document.getElementById('callAnimation');
+        const replicaContainer = document.getElementById('replicaContainer');
+        const recordLink = document.getElementById('recordLink');
+        let replicas = {};
+        let recordUrl = '';
+
+        function getReplicasAsText() {
+            const sortedReplicas = Object.values(replicas).sort((a, b) => a.timestamp - b.timestamp);
+            return sortedReplicas.map(replica => {
+                const emoji = replica.author === 'robot' ? '🤖' : '👤';
+                return `${emoji}: ${replica.text}${replica.isComplete ? '' : '...'}`;
+            }).join('\n');
+        }
+
+        const sdk = VoxImplant.getInstance();
+
+        const login = async () => {
+            try {
+                await sdk.init({
+                    node: VoxImplant.ConnectionNode.NODE_4
+                });
+                console.log("VoxImplant SDK is ready");
+                try {
+                    await sdk.connect();
+                    console.log("VoxImplant Connection successful");
+                } catch (e) {
+                    console.log("VoxImplant Connection failed", e);
+                }
+                try {
+                    await sdk.login("website@realtimebusy.levashov.voximplant.com", "8k>SVmwV");
+                    console.log("VoxImplant Logged in");
+                } catch (e) {
+                    console.log("VoxImplant Login failure!", e);
+                }
+            } catch (e) {
+                console.log("VoxImplant SDK init failure!", e);
+            }
+        };
+
+        const startCall = () => {
+            const call = sdk.call({
+                number: "website",
+                video: {
+                    sendVideo: false,
+                    receiveVideo: false
+                }
+            });
+
+            call.addEventListener(VoxImplant.CallEvents.Connected, () => {
+                console.log("Call connected!");
+                callAnimation.innerHTML = 'Идет звонок... <a href="#" id="interruptCallLink">Прервать</a>';
+                document.getElementById('interruptCallLink').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    call.hangup();
+                });
+            });
+
+            call.addEventListener(VoxImplant.CallEvents.Disconnected, () => {
+                console.log("Call disconnected!");
+                callAnimation.textContent = 'Звонок завершен';
+                if (recordUrl) {
+                    recordLink.href = recordUrl;
+                    recordLink.style.display = 'inline';
+                }
+                setTimeout(() => {
+                    callAnimation.style.display = 'none';
+                    demoButton.style.display = 'inline-block';
+                }, 3000);
+            });
+
+            call.addEventListener(VoxImplant.CallEvents.Failed, (e) => {
+                console.log("Call failed!", e);
+                callAnimation.textContent = 'Ошибка звонка';
+                setTimeout(() => {
+                    callAnimation.style.display = 'none';
+                    demoButton.style.display = 'inline-block';
+                }, 3000);
+            });
+
+            call.addEventListener(VoxImplant.CallEvents.MessageReceived, (e) => {
+                console.log("Message received:", e.text);
+                try {
+                    const data = JSON.parse(e.text);
+                    if (data.type === 'replica') {
+                        replicas[data.replica.id] = { id: data.replica.id, author: data.replica.author, text: data.replica.text, timestamp: data.replica.timestamp, isComplete: data.replica.isComplete };
+                        replicaContainer.innerHTML = getReplicasAsText().replace(/\n/g, '<br>');
+                    } else if (data.type === 'record_url') {
+                        recordUrl = data.record_url;
+                        console.log("Record URL:", recordUrl);
+                    }
+                } catch (error) {
+                    console.error("Error parsing message:", error);
+                }
+            });
+        };
+
+        window.addEventListener('load', () => {
+            login();
+
+            demoButton.addEventListener('click', () => {
+                demoButton.style.display = 'none';
+                callAnimation.style.display = 'block';
+                callAnimation.textContent = 'Подключение...';
+                replicas = {};
+                replicaContainer.textContent = ''; // Clear container when call starts
+                recordUrl = '';
+                recordLink.href = '#';
+                recordLink.style.display = 'none';
+                startCall();
+            });
+        });
+    </script>
+</body>
+</html>
